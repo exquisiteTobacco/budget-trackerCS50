@@ -1,6 +1,7 @@
 import os
-from flask import Flask, render_template, redirect, url_for, request, flash
+from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
@@ -23,11 +24,12 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-class User(UserMixin, db.Model):  #inherits from flask_login and sqlAlchemy
+class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128))
+    balance = db.Column(db.Float, default=0.0)  
     categories = db.relationship('Category', backref='user', lazy=True)
     transactions = db.relationship('Transaction', backref='user', lazy=True)
 
@@ -37,6 +39,12 @@ class User(UserMixin, db.Model):  #inherits from flask_login and sqlAlchemy
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+    def update_balance(self, amount, transaction_type):
+        if transaction_type == 'income':
+            self.balance += amount
+        elif transaction_type == 'expense':
+            self.balance -= amount
+    
     def __repr__(self):
         return f'<User {self.username}>'
 
@@ -87,11 +95,48 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('login'))
+from flask import render_template, request, jsonify
+from flask_login import login_required, current_user
+from sqlalchemy import func
 
-@app.route('/dashboard')
+@app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
 def dashboard():
-    return render_template('dashboard.html')
+    if request.method == 'POST':
+        amount = float(request.form['amount'])
+        transaction_type = request.form['type']
+        description = request.form['description']
+        category_id = int(request.form['category'])
+
+        new_transaction = Transaction(
+            amount=abs(amount),
+            description=description,
+            type=transaction_type,
+            date=datetime.utcnow(),
+            user_id=current_user.id,
+            category_id=category_id
+        )
+        db.session.add(new_transaction)
+
+        # Update user's balance
+        current_user.update_balance(abs(amount), transaction_type)
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True, 
+            'message': f'{transaction_type.capitalize()} added successfully',
+            'new_balance': current_user.balance
+        })
+
+    # Get recent transactions
+    recent_transactions = Transaction.query.filter_by(user_id=current_user.id).order_by(Transaction.date.desc()).limit(5).all()
+
+    # Get categories for the form
+    categories = Category.query.filter_by(user_id=current_user.id).all()
+
+    return render_template('dashboard.html', balance=current_user.balance, recent_transactions=recent_transactions, categories=categories)
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():

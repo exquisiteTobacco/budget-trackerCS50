@@ -91,14 +91,14 @@ Multi-currency support
 
 Development Steps:
 
-Set up your development environment
-Create the database schema
-Implement user authentication
-Build CRUD functionality for transactions
-Implement categorization system
-Create budget goal setting and tracking
-Develop data visualization components
-Design and implement the user interface
+Set up your development environment #DONE
+Create the database schema #DONE
+Implement user authentication #DONE 
+Build CRUD functionality for transactions #TODO
+Implement categorization system #TODO
+Create budget goal setting and tracking #TODO
+Develop data visualization components #TODO
+Design and implement the user interface #TODO
 Test thoroughly
 Deploy your application
 

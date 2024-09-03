@@ -4,6 +4,95 @@
 
 {% block content %}
     <h2>Welcome, {{ current_user.username }}!</h2>
-    <p>This is your dashboard. Here you can view your budget summary and recent transactions.</p>
-    <!-- Add more dashboard content here -->
+    
+    <div id="balance-section">
+        <h3>Current Balance: $<span id="balance">{{ "%.2f"|format(balance) }}</span></h3>
+    </div>
+
+    <div id="transaction-form">
+        <h3>Add Transaction</h3>
+        <form id="add-transaction-form">
+            <div>
+                <label for="amount">Amount:</label>
+                <input type="number" step="0.01" id="amount" name="amount" required>
+            </div>
+            <div>
+                <label for="type">Type:</label>
+                <select id="type" name="type" required>
+                    <option value="income">Income</option>
+                    <option value="expense">Expense</option>
+                </select>
+            </div>
+            <div>
+                <label for="description">Description:</label>
+                <input type="text" id="description" name="description" required>
+            </div>
+            <div>
+                <label for="category">Category:</label>
+                <select id="category" name="category" required>
+                    {% for category in categories %}
+                        <option value="{{ category.id }}">{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit">Add Transaction</button>
+        </form>
+    </div>
+
+    <div id="recent-transactions">
+        <h3>Recent Transactions</h3>
+        <ul id="transactions-list">
+            {% for transaction in recent_transactions %}
+                <li>
+                    {{ transaction.date.strftime('%Y-%m-%d') }} - 
+                    {{ transaction.description }} - 
+                    ${{ "%.2f"|format(transaction.amount) }} 
+                    ({{ transaction.type }})
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <script>
+        document.getElementById('add-transaction-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            var formData = new FormData(this);
+            
+            fetch('/dashboard', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    // Update balance
+                    var currentBalance = parseFloat(document.getElementById('balance').textContent);
+                    var amount = parseFloat(formData.get('amount'));
+                    if (formData.get('type') === 'expense') {
+                        amount = -amount;
+                    }
+                    var newBalance = currentBalance + amount;
+                    document.getElementById('balance').textContent = newBalance.toFixed(2);
+
+                    // Add new transaction to the list
+                    var transactionsList = document.getElementById('transactions-list');
+                    var newTransaction = document.createElement('li');
+                    var date = new Date().toISOString().split('T')[0];
+                    newTransaction.textContent = `${date} - ${formData.get('description')} - $${Math.abs(amount).toFixed(2)} (${formData.get('type')})`;
+                    transactionsList.insertBefore(newTransaction, transactionsList.firstChild);
+
+                    // Clear form
+                    e.target.reset();
+                } else {
+                    alert('Error adding transaction');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred');
+            });
+        });
+    </script>
 {% endblock %}
