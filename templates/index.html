@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome to Budget Tracker{% endblock %}
+
+{% block content %}
+    <h2>Welcome to Budget Tracker</h2>
+    <p>Take control of your finances with our easy-to-use budget tracking tool.</p>
+    
+    <h3>Key Features:</h3>
+    <ul>
+        <li>Track your income and expenses</li>
+        <li>Categorize your transactions</li>
+        <li>Set and monitor budget goals</li>
+        <li>View detailed financial reports</li>
+        <li>Secure and private</li>
+    </ul>
+    
+    <h3>Get Started:</h3>
+    <p>
+        <a href="{{ url_for('register') }}" class="btn">Sign Up Now</a>
+        or
+        <a href="{{ url_for('login') }}" class="btn">Log In</a>
+    </p>
+    
+    <h3>Why Use Budget Tracker?</h3>
+    <p>Our application helps you gain insights into your spending habits, set realistic financial goals, and make informed decisions about your money. Whether you're saving for a big purchase, trying to reduce debt, or just want to be more mindful of your spending, Budget Tracker is here to help.</p>
+{% endblock %}
