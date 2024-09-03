@@ -103,31 +103,45 @@ from sqlalchemy import func
 @login_required
 def dashboard():
     if request.method == 'POST':
-        amount = float(request.form['amount'])
-        transaction_type = request.form['type']
-        description = request.form['description']
-        category_id = int(request.form['category'])
+        if 'category_name' in request.form:
+            # Handle new category creation
+            category_name = request.form['category_name']
+            new_category = Category(name=category_name, user_id=current_user.id)
+            db.session.add(new_category)
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'message': 'Category added successfully',
+                'category_id': new_category.id,
+                'category_name': new_category.name
+            })
+        else:
+            # Handle new transaction
+            amount = float(request.form['amount'])
+            transaction_type = request.form['type']
+            description = request.form['description']
+            category_id = int(request.form['category'])
 
-        new_transaction = Transaction(
-            amount=abs(amount),
-            description=description,
-            type=transaction_type,
-            date=datetime.utcnow(),
-            user_id=current_user.id,
-            category_id=category_id
-        )
-        db.session.add(new_transaction)
+            new_transaction = Transaction(
+                amount=abs(amount),
+                description=description,
+                type=transaction_type,
+                date=datetime.utcnow(),
+                user_id=current_user.id,
+                category_id=category_id
+            )
+            db.session.add(new_transaction)
 
-        # Update user's balance
-        current_user.update_balance(abs(amount), transaction_type)
+            # Update user's balance
+            current_user.update_balance(abs(amount), transaction_type)
 
-        db.session.commit()
+            db.session.commit()
 
-        return jsonify({
-            'success': True, 
-            'message': f'{transaction_type.capitalize()} added successfully',
-            'new_balance': current_user.balance
-        })
+            return jsonify({
+                'success': True, 
+                'message': f'{transaction_type.capitalize()} added successfully',
+                'new_balance': current_user.balance
+            })
 
     # Get recent transactions
     recent_transactions = Transaction.query.filter_by(user_id=current_user.id).order_by(Transaction.date.desc()).limit(5).all()
@@ -153,9 +167,46 @@ def register():
             new_user.set_password(password)
             db.session.add(new_user)
             db.session.commit()
+            
+            # Create default categories for the new user
+            create_default_categories(new_user.id)
+            
             flash('Registered successfully')
             return redirect(url_for('login'))
     return render_template('register.html')
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+from app import db
+from app.models import Category, User
+
+DEFAULT_CATEGORIES = [
+    # Income categories
+    "Salary",
+    "Freelance",
+    "Investments",
+    "Gifts",
+    
+    # Expense categories
+    "Housing",
+    "Utilities",
+    "Groceries",
+    "Transportation",
+    "Healthcare",
+    "Insurance",
+    "Dining Out",
+    "Entertainment",
+    "Shopping",
+    "Education",
+    "Personal Care",
+    "Debt Payments",
+    "Savings",
+    "Charity/Donations"
+]
+
+def create_default_categories(user_id):
+    for category_name in DEFAULT_CATEGORIES:
+        category = Category(name=category_name, user_id=user_id)
+        db.session.add(category)
+    db.session.commit()

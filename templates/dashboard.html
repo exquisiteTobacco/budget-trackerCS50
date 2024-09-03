@@ -34,8 +34,20 @@
                         <option value="{{ category.id }}">{{ category.name }}</option>
                     {% endfor %}
                 </select>
+                <button type="button" id="add-category-btn">Add New Category</button>
             </div>
             <button type="submit">Add Transaction</button>
+        </form>
+    </div>
+
+    <div id="add-category-form" style="display: none;">
+        <h3>Add New Category</h3>
+        <form id="category-form">
+            <div>
+                <label for="category_name">Category Name:</label>
+                <input type="text" id="category_name" name="category_name" required>
+            </div>
+            <button type="submit">Add Category</button>
         </form>
     </div>
 
@@ -67,26 +79,51 @@
             .then(data => {
                 if (data.success) {
                     alert(data.message);
-                    // Update balance
-                    var currentBalance = parseFloat(document.getElementById('balance').textContent);
-                    var amount = parseFloat(formData.get('amount'));
-                    if (formData.get('type') === 'expense') {
-                        amount = -amount;
-                    }
-                    var newBalance = currentBalance + amount;
-                    document.getElementById('balance').textContent = newBalance.toFixed(2);
+                    document.getElementById('balance').textContent = data.new_balance.toFixed(2);
 
-                    // Add new transaction to the list
                     var transactionsList = document.getElementById('transactions-list');
                     var newTransaction = document.createElement('li');
                     var date = new Date().toISOString().split('T')[0];
-                    newTransaction.textContent = `${date} - ${formData.get('description')} - $${Math.abs(amount).toFixed(2)} (${formData.get('type')})`;
+                    var amount = parseFloat(formData.get('amount'));
+                    newTransaction.textContent = `${date} - ${formData.get('description')} - $${amount.toFixed(2)} (${formData.get('type')})`;
                     transactionsList.insertBefore(newTransaction, transactionsList.firstChild);
 
-                    // Clear form
                     e.target.reset();
                 } else {
                     alert('Error adding transaction');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred');
+            });
+        });
+
+        document.getElementById('add-category-btn').addEventListener('click', function() {
+            document.getElementById('add-category-form').style.display = 'block';
+        });
+
+        document.getElementById('category-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            var formData = new FormData(this);
+            
+            fetch('/dashboard', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    var categorySelect = document.getElementById('category');
+                    var option = new Option(data.category_name, data.category_id);
+                    categorySelect.add(option);
+                    categorySelect.value = data.category_id;
+                    document.getElementById('add-category-form').style.display = 'none';
+                    e.target.reset();
+                } else {
+                    alert('Error adding category');
                 }
             })
             .catch(error => {
