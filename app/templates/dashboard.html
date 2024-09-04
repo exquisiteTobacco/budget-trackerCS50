@@ -9,35 +9,33 @@
             <h2>Current Balance: <span id="balance">${{ "%.2f"|format(balance) }}</span></h2>
         </section>
 
-        <section id="transaction-form" class="section">
-            <h2>Add Transaction</h2>
-            <form id="add-transaction-form">
-                <div class="form-group">
-                    <label for="amount">Amount:</label>
-                    <input type="number" id="amount" name="amount" step="0.01" required>
-                </div>
-                <div class="form-group">
-                    <label for="type">Type:</label>
-                    <select id="type" name="type" required>
-                        <option value="income">Income</option>
-                        <option value="expense">Expense</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="description">Description:</label>
-                    <input type="text" id="description" name="description" required>
-                </div>
-                <div class="form-group">
-                    <label for="category">Category:</label>
-                    <select id="category" name="category" required>
-                        {% for category in categories %}
-                            <option value="{{ category.id }}">{{ category.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit">Add Transaction</button>
-            </form>
-        </section>
+       <div id="transaction-form" class="section">
+    <h2>Add Transaction</h2>
+    <form id="add-transaction-form">
+        <div class="form-group">
+            <label for="amount">Amount:</label>
+            <input type="number" id="amount" name="amount" step="0.01" required>
+        </div>
+        <div class="form-group">
+            <label for="type">Type:</label>
+            <select id="type" name="type" required>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="description">Description:</label>
+            <input type="text" id="description" name="description" required>
+        </div>
+        <div class="form-group">
+            <label for="category">Category:</label>
+            <select id="category" name="category" required>
+                <option value="">Select a category</option>
+            </select>
+        </div>
+        <button type="submit">Add Transaction</button>
+    </form>
+</div>
 
         <section id="add-category-form" class="section">
             <h2>Add New Category</h2>
@@ -97,7 +95,30 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    
 document.addEventListener('DOMContentLoaded', function() {
+
+    const typeSelect = document.getElementById('type');
+    const categorySelect = document.getElementById('category');
+
+    function updateCategoryOptions() {
+        const transactionType = typeSelect.value;
+        fetch(`/get_categories/${transactionType}`)
+            .then(response => response.json())
+            .then(categories => {
+                categorySelect.innerHTML = '<option value="">Select a category</option>';
+                categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category.id;
+                    option.textContent = category.name;
+                    categorySelect.appendChild(option);
+                });
+            });
+    }
+
+    typeSelect.addEventListener('change', updateCategoryOptions);
+
+    // Initial load of categories
     // Existing chart objects
     let monthlyChart = null;
     let expenseDistributionChart = null;
@@ -144,7 +165,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     amount: parseFloat(amount),
                     type: type
                 });
-                document.getElementById('transaction-form').reset();
+                
                 updateCharts();
             } else {
                 console.error('Transaction failed:', data.message);
@@ -178,7 +199,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 option.value = data.category_id;
                 option.textContent = data.category_name;
                 categorySelect.appendChild(option);
-                document.getElementById('add-category-form').reset();
+                
             } else {
                 console.error('Category addition failed:', data.message);
                 alert(data.message);

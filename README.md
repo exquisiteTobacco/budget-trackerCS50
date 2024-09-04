@@ -1,3 +1,6 @@
+
+
+
 # Budget Tracker
 
 Budget Tracker is a web-based application designed to help users manage their personal finances effectively. Built with Flask and SQLAlchemy, this application provides an intuitive interface for tracking income, expenses, and overall financial health.
