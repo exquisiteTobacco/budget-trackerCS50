@@ -1,18 +1,38 @@
 {% extends "base.html" %}
-
 {% block title %}Login - Budget Tracker{% endblock %}
-
 {% block content %}
-    <h2>Login</h2>
-    <form method="POST">
-        <div>
-            <label for="username">Username:</label>
-            <input type="text" id="username" name="username" required>
-        </div>
-        <div>
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
-        </div>
-        <button type="submit">Login</button>
-    </form>
+<h2>Login</h2>
+<form id="login-form" method="POST">
+  <div>
+    <label for="username">Username:</label>
+    <input type="text" id="username" name="username" required>
+  </div>
+  <div>
+    <label for="password">Password:</label>
+    <input type="password" id="password" name="password" required>
+  </div>
+  <button type="submit">Login</button>
+</form>
+
+<script>
+document.getElementById('login-form').addEventListener('submit', function(e) {
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  let isValid = true;
+
+  if (username === '') {
+    alert('Username is required');
+    isValid = false;
+  }
+
+  if (password === '') {
+    alert('Password is required');
+    isValid = false;
+  }
+
+  if (!isValid) {
+    e.preventDefault();
+  }
+});
+</script>
 {% endblock %}

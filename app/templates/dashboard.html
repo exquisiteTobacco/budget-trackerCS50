@@ -1,135 +1,356 @@
 {% extends "base.html" %}
-
 {% block title %}Dashboard - Budget Tracker{% endblock %}
-
 {% block content %}
-    <h2>Welcome, {{ current_user.username }}!</h2>
-    
-    <div id="balance-section">
-        <h3>Current Balance: $<span id="balance">{{ "%.2f"|format(balance) }}</span></h3>
+<h1>Welcome, {{ current_user.username }}!</h1>
+
+<div class="dashboard-container">
+    <div class="left-column">
+        <section id="balance-section" class="section">
+            <h2>Current Balance: <span id="balance">${{ "%.2f"|format(balance) }}</span></h2>
+        </section>
+
+        <section id="transaction-form" class="section">
+            <h2>Add Transaction</h2>
+            <form id="add-transaction-form">
+                <div class="form-group">
+                    <label for="amount">Amount:</label>
+                    <input type="number" id="amount" name="amount" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="type">Type:</label>
+                    <select id="type" name="type" required>
+                        <option value="income">Income</option>
+                        <option value="expense">Expense</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description:</label>
+                    <input type="text" id="description" name="description" required>
+                </div>
+                <div class="form-group">
+                    <label for="category">Category:</label>
+                    <select id="category" name="category" required>
+                        {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit">Add Transaction</button>
+            </form>
+        </section>
+
+        <section id="add-category-form" class="section">
+            <h2>Add New Category</h2>
+            <form id="new-category-form">
+                <div class="form-group">
+                    <label for="category_name">Category Name:</label>
+                    <input type="text" id="category_name" name="category_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="category_type">Category Type:</label>
+                    <select id="category_type" name="category_type" required>
+                        <option value="income">Income</option>
+                        <option value="expense">Expense</option>
+                    </select>
+                </div>
+                <button type="submit">Add Category</button>
+            </form>
+        </section>
+
+        <section id="recent-transactions" class="section">
+            <h2>Recent Transactions</h2>
+            <ul>
+                {% for transaction in recent_transactions %}
+                    <li>
+                        {{ transaction.date.strftime('%Y-%m-%d') }} - 
+                        {{ transaction.description }} - 
+                        ${{ "%.2f"|format(transaction.amount) }} 
+                        ({{ transaction.type }})
+                    </li>
+                {% endfor %}
+            </ul>
+        </section>
     </div>
 
-    <div id="transaction-form">
-        <h3>Add Transaction</h3>
-        <form id="add-transaction-form">
-            <div>
-                <label for="amount">Amount:</label>
-                <input type="number" step="0.01" id="amount" name="amount" required>
-            </div>
-            <div>
-                <label for="type">Type:</label>
-                <select id="type" name="type" required>
-                    <option value="income">Income</option>
-                    <option value="expense">Expense</option>
-                </select>
-            </div>
-            <div>
-                <label for="description">Description:</label>
-                <input type="text" id="description" name="description" required>
-            </div>
-            <div>
-                <label for="category">Category:</label>
-                <select id="category" name="category" required>
-                    {% for category in categories %}
-                        <option value="{{ category.id }}">{{ category.name }}</option>
-                    {% endfor %}
-                </select>
-                <button type="button" id="add-category-btn">Add New Category</button>
-            </div>
-            <button type="submit">Add Transaction</button>
-        </form>
-    </div>
+    <div class="right-column">
+        <div id="chart-selector">
+            <label for="chart-type">Select Chart:</label>
+            <select id="chart-type">
+                <option value="monthlyChart">Monthly Income vs Expenses</option>
+                <option value="expenseDistributionChart">Expense Distribution</option>
+                <option value="spendingTrendsChart">Spending Trends (Last 30 Days)</option>
+            </select>
+        </div>
 
-    <div id="add-category-form" style="display: none;">
-        <h3>Add New Category</h3>
-        <form id="category-form">
-            <div>
-                <label for="category_name">Category Name:</label>
-                <input type="text" id="category_name" name="category_name" required>
+        <div id="charts-section">
+            <div id="monthlyChart-container" class="chart-container">
+                <canvas id="monthlyChart" width="400" height="200"></canvas>
             </div>
-            <button type="submit">Add Category</button>
-        </form>
-    </div>
+            <div id="expenseDistributionChart-container" class="chart-container" style="display: none;">
+                <canvas id="expenseDistributionChart" width="400" height="200"></canvas>
+            </div>
+            <div id="spendingTrendsChart-container" class="chart-container" style="display: none;">
+                <canvas id="spendingTrendsChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+</div>
 
-    <div id="recent-transactions">
-        <h3>Recent Transactions</h3>
-        <ul id="transactions-list">
-            {% for transaction in recent_transactions %}
-                <li>
-                    {{ transaction.date.strftime('%Y-%m-%d') }} - 
-                    {{ transaction.description }} - 
-                    ${{ "%.2f"|format(transaction.amount) }} 
-                    ({{ transaction.type }})
-                </li>
-            {% endfor %}
-        </ul>
-    </div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Existing chart objects
+    let monthlyChart = null;
+    let expenseDistributionChart = null;
+    let spendingTrendsChart = null;
 
-    <script>
-        document.getElementById('add-transaction-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            var formData = new FormData(this);
-            
-            fetch('/dashboard', {
-                method: 'POST',
-                body: formData
-            })
+    // Function to update the balance display
+    function updateBalance(newBalance) {
+        document.getElementById('balance').textContent = `$${newBalance.toFixed(2)}`;
+    }
+
+    // Function to add a new transaction to the list
+    function addTransactionToList(transaction) {
+        const list = document.getElementById('recent-transactions').getElementsByTagName('ul')[0];
+        const li = document.createElement('li');
+        li.textContent = `${transaction.date} - ${transaction.description} - $${transaction.amount.toFixed(2)} (${transaction.type})`;
+        list.insertBefore(li, list.firstChild);
+        if (list.children.length > 5) {
+            list.removeChild(list.lastChild);
+        }
+    }
+
+    // Event listener for the transaction form
+    document.getElementById('transaction-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const amount = document.getElementById('amount').value;
+        const type = document.getElementById('type').value;
+        const description = document.getElementById('description').value;
+        const category = document.getElementById('category').value;
+
+        fetch('/dashboard', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `amount=${amount}&type=${type}&description=${description}&category=${category}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateBalance(data.new_balance);
+                addTransactionToList({
+                    date: new Date().toISOString().split('T')[0],
+                    description: description,
+                    amount: parseFloat(amount),
+                    type: type
+                });
+                document.getElementById('transaction-form').reset();
+                updateCharts();
+            } else {
+                console.error('Transaction failed:', data.message);
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error adding transaction:', error);
+            alert('An error occurred while adding the transaction. Please try again.');
+        });
+    });
+
+    // Event listener for the category form
+    document.getElementById('add-category-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const categoryName = document.getElementById('category_name').value;
+        const categoryType = document.getElementById('category_type').value;
+
+        fetch('/dashboard', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `category_name=${categoryName}&category_type=${categoryType}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const categorySelect = document.getElementById('category');
+                const option = document.createElement('option');
+                option.value = data.category_id;
+                option.textContent = data.category_name;
+                categorySelect.appendChild(option);
+                document.getElementById('add-category-form').reset();
+            } else {
+                console.error('Category addition failed:', data.message);
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error adding category:', error);
+            alert('An error occurred while adding the category. Please try again.');
+        });
+    });
+
+    // Function to update all charts
+    function updateCharts() {
+        updateMonthlyChart();
+        updateExpenseDistributionChart();
+        updateSpendingTrendsChart();
+    }
+
+    // Function to update the monthly chart
+    function updateMonthlyChart() {
+        const canvas = document.getElementById('monthlyChart');
+        if (!canvas) {
+            console.error('Monthly chart canvas not found');
+            return;
+        }
+        fetch('/api/monthly_summary')
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    alert(data.message);
-                    document.getElementById('balance').textContent = data.new_balance.toFixed(2);
-
-                    var transactionsList = document.getElementById('transactions-list');
-                    var newTransaction = document.createElement('li');
-                    var date = new Date().toISOString().split('T')[0];
-                    var amount = parseFloat(formData.get('amount'));
-                    newTransaction.textContent = `${date} - ${formData.get('description')} - $${amount.toFixed(2)} (${formData.get('type')})`;
-                    transactionsList.insertBefore(newTransaction, transactionsList.firstChild);
-
-                    e.target.reset();
-                } else {
-                    alert('Error adding transaction');
+                console.log('Monthly chart data:', data);
+                const ctx = canvas.getContext('2d');
+                if (monthlyChart) {
+                    monthlyChart.destroy();
                 }
+                monthlyChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Income', 'Expenses'],
+                        datasets: [{
+                            label: 'Amount',
+                            data: [data.income, data.expenses],
+                            backgroundColor: ['rgba(75, 192, 192, 0.2)', 'rgba(255, 99, 132, 0.2)'],
+                            borderColor: ['rgba(75, 192, 192, 1)', 'rgba(255, 99, 132, 1)'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
             })
             .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred');
+                console.error('Error updating monthly chart:', error);
             });
-        });
+    }
 
-        document.getElementById('add-category-btn').addEventListener('click', function() {
-            document.getElementById('add-category-form').style.display = 'block';
-        });
-
-        document.getElementById('category-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            var formData = new FormData(this);
-            
-            fetch('/dashboard', {
-                method: 'POST',
-                body: formData
-            })
+    // Function to update the expense distribution chart
+    function updateExpenseDistributionChart() {
+        const canvas = document.getElementById('expenseDistributionChart');
+        if (!canvas) {
+            console.error('Expense distribution chart canvas not found');
+            return;
+        }
+        fetch('/api/expense_distribution')
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    alert(data.message);
-                    var categorySelect = document.getElementById('category');
-                    var option = new Option(data.category_name, data.category_id);
-                    categorySelect.add(option);
-                    categorySelect.value = data.category_id;
-                    document.getElementById('add-category-form').style.display = 'none';
-                    e.target.reset();
-                } else {
-                    alert('Error adding category');
+                console.log('Expense distribution data:', data);
+                const ctx = canvas.getContext('2d');
+                if (expenseDistributionChart) {
+                    expenseDistributionChart.destroy();
                 }
+                expenseDistributionChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            data: data.data,
+                            backgroundColor: [
+                                'rgba(255, 99, 132, 0.2)',
+                                'rgba(54, 162, 235, 0.2)',
+                                'rgba(255, 206, 86, 0.2)',
+                                'rgba(75, 192, 192, 0.2)',
+                                'rgba(153, 102, 255, 0.2)',
+                            ],
+                            borderColor: [
+                                'rgba(255, 99, 132, 1)',
+                                'rgba(54, 162, 235, 1)',
+                                'rgba(255, 206, 86, 1)',
+                                'rgba(75, 192, 192, 1)',
+                                'rgba(153, 102, 255, 1)',
+                            ],
+                            borderWidth: 1
+                        }]
+                    }
+                });
             })
             .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred');
+                console.error('Error updating expense distribution chart:', error);
             });
-        });
-    </script>
+    }
+
+    // Function to update the spending trends chart
+    function updateSpendingTrendsChart() {
+        const canvas = document.getElementById('spendingTrendsChart');
+        if (!canvas) {
+            console.error('Spending trends chart canvas not found');
+            return;
+        }
+        fetch('/api/spending_trends')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Spending trends data:', data);
+                const ctx = canvas.getContext('2d');
+                if (spendingTrendsChart) {
+                    spendingTrendsChart.destroy();
+                }
+                spendingTrendsChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Daily Expenses',
+                            data: data.data,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error updating spending trends chart:', error);
+            });
+    }
+
+
+    // Event listener for the chart selector
+    document.getElementById('chart-type').addEventListener('change', function(e) {
+        const selectedChart = e.target.value;
+        console.log('Selected chart:', selectedChart);
+        document.getElementById('monthlyChart-container').style.display = 'none';
+        document.getElementById('expenseDistributionChart-container').style.display = 'none';
+        document.getElementById('spendingTrendsChart-container').style.display = 'none';
+        document.getElementById(`${selectedChart}-container`).style.display = 'block';
+
+        // Update the selected chart
+        if (selectedChart === 'monthlyChart') {
+            updateMonthlyChart();
+        } else if (selectedChart === 'expenseDistributionChart') {
+            updateExpenseDistributionChart();
+        } else if (selectedChart === 'spendingTrendsChart') {
+            updateSpendingTrendsChart();
+        }
+    });
+
+    // Initial chart update
+    updateMonthlyChart()
+});
+</script>
+<style>
+  .dashboard-container{
+    display: flex;
+    flex-direction: row;
+  }
+</style>
 {% endblock %}
