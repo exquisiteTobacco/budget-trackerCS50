@@ -1,4 +1,5 @@
 
+![budget](https://github.com/user-attachments/assets/49ef07c5-0b45-4169-85e5-eaf48427d8d4)
 
 
 # Budget Tracker
